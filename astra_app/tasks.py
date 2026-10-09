@@ -204,7 +204,9 @@ def postpone(identifier, at, runner=None):
         cron(runner, args)
     except OperationError as exc:
         if not re.search(r"not found|unknown automation|does not exist", str(exc), re.I):
-            raise
+            with store() as data:
+                resolve(data, identifier)["status"] = "uncertain"
+            raise OperationError("Reminder postponement is uncertain; inspect its scheduler job before retrying") from exc
         task["revision"] += 1
         task["schedule"] = {**task["schedule"], "kind": "at", "value": at}
         try:

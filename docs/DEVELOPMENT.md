@@ -39,6 +39,16 @@ The smoke check starts an isolated test dashboard with a mock operation dispatch
 
 You can use an existing Chromium/Chrome executable instead of downloading a Playwright browser: set `ASTRA_BROWSER=/path/to/chrome` before the smoke command. It opens a fresh temporary profile, never an existing account profile.
 
+## OS-isolated fake-account checks
+
+These checks use bubblewrap and strict fake native tools:
+
+```sh
+python3 scripts/run_sandbox.py
+```
+
+The suite creates a disposable HOME/ASTRA_HOME, unshares the network, binds only read-only system libraries and the source tree, and supplies synthetic OpenClaw, OmniRoute, Google, WhatsApp-history, browser, and Android commands. It exercises real CLI/dashboard handlers, scheduler uncertainty, runtime failure paths, backups and listener isolation. It has no fallback to host account tools and never reaches the internet or existing loopback services. The sandbox tests are skipped by ordinary discovery and are included in the release source for maintainers.
+
 Package check:
 
 ```sh

@@ -140,7 +140,9 @@ def execute(args):
             return google.import_client(json.loads(args.file.read_text()))
         return google.login() if args.action == "login" else google.status()
     if args.command == "instagram":
-        return integrations.instagram_login() if args.action == "login" else runtime.instagram_watch(args.action == "watch-enable")
+        if args.action == "login":
+            return integrations.instagram_login()
+        return runtime.instagram_watch(args.action == "watch-enable", create=args.action == "watch-create")
     if args.command == "phone":
         return integrations.phone_screen(args.serial) if args.action == "screen" else integrations.phone_status()
     if args.command == "persona":

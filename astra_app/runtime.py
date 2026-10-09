@@ -52,6 +52,7 @@ def router_environment():
     env["API_PORT"] = str(settings.ROUTER_PORT)
     env["DASHBOARD_PORT"] = str(settings.ROUTER_PORT)
     env["LIVE_WS_PORT"] = str(settings.ROUTER_PORT + 4)
+    env["EMBED_WS_PROXY_PORT"] = str(settings.ROUTER_PORT + 5)
     env["LIVE_WS_HOST"] = "127.0.0.1"
     env["HOSTNAME"] = "127.0.0.1"
     env["OMNIROUTE_HOST"] = "127.0.0.1"
@@ -75,10 +76,14 @@ def system_executable(name):
     return Path(path) if path else None
 
 
-def system_version(path):
+def system_version(path, *, profile=False):
     import subprocess
     try:
-        result = subprocess.run([str(path), "--version"], capture_output=True, text=True, timeout=20)
+        argv = [str(path)]
+        if profile:
+            argv.extend(["--profile", settings.PROFILE])
+        argv.append("--version")
+        result = subprocess.run(argv, capture_output=True, text=True, timeout=20)
     except (OSError, subprocess.SubprocessError):
         return ""
     return result.stdout.strip() if result.returncode == 0 else ""
@@ -118,8 +123,14 @@ def bootstrap(runner=None):
     target.mkdir(parents=True, exist_ok=True, mode=0o700)
     target.chmod(0o700)
     if all((target / "node_modules/.bin" / name).is_file() for name in ("openclaw", "omniroute")):
-        return {"message": "Astra's private core tools are already installed.", "openclaw": OPENCLAW_VERSION,
-                "omniroute": OMNIROUTE_VERSION, "tools": str(target), "mode": "private"}
+        versions = {name: system_version(target / "node_modules/.bin" / name, profile=name == "openclaw")
+                    for name in ("openclaw", "omniroute")}
+        if not re.search(rf"\b{re.escape(OPENCLAW_VERSION)}(?:\s|$|\))", versions["openclaw"]):
+            raise OperationError(f"Astra's private openclaw version drifted: {versions['openclaw'] or 'unknown'}. Preserve it and inspect before retrying.")
+        if not re.search(r"\b3\.8\.(?:50|51)\b", versions["omniroute"]):
+            raise OperationError(f"Astra's private omniroute version drifted: {versions['omniroute'] or 'unknown'}. Preserve it and inspect before retrying.")
+        return {"message": "Astra's private core tools are already installed.", "openclaw": versions["openclaw"],
+                "omniroute": versions["omniroute"], "tools": str(target), "mode": "private"}
     compatible = compatible_system_tools()
     if compatible:
         use_system_tools(compatible)
@@ -404,7 +415,7 @@ def ask(prompt, runner=None):
     return {"text": text, "run_id": result.get("runId"), "message": "Agent reply received; read it for the actual task outcome."}
 
 
-def instagram_watch(enable=False, runner=None):
+def instagram_watch(enable=False, runner=None, create=False):
     runner = runner or Runner()
     cfg = settings.load()
     if not cfg["runtime_configured"] or not cfg["instagram_username"]:
@@ -413,6 +424,8 @@ def instagram_watch(enable=False, runner=None):
     if enable and not cfg["away_enabled"]:
         raise OperationError("Enable away mode in settings and apply it before starting the watcher")
     identifier = cfg["instagram_job_id"]
+    if not identifier and not enable and not create:
+        return {"job_id": None, "message": "Instagram watcher is already disabled; no scheduler job was created."}
     if not identifier:
         declaration = "astra-community:instagram-away:v1"
         jobs = runner.json("openclaw", ["cron", "list", "--all", "--json"]).get("jobs", [])
@@ -441,7 +454,7 @@ def instagram_watch(enable=False, runner=None):
         apply(runner)
         return {"job_id": identifier, "message": "Watcher created disabled. Restart the gateway to load its exact job ID, then enable the watcher."}
     loaded = call("astra.replyGuard.status", runner=runner)
-    if loaded.get("instagramJobId") != identifier:
+    if enable and loaded.get("instagramJobId") != identifier:
         raise OperationError("Restart the gateway after applying the watcher job ID, then enable it")
     if enable:
         from datetime import datetime, timezone

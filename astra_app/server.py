@@ -60,7 +60,7 @@ def dispatch(action, params):
     if action == "instagram.login":
         return integrations.instagram_login()
     if action in ("instagram.create", "instagram.enable", "instagram.disable"):
-        return runtime.instagram_watch(action == "instagram.enable")
+        return runtime.instagram_watch(action == "instagram.enable", create=action == "instagram.create")
     if action == "phone.status":
         return integrations.phone_status()
     if action == "phone.screen":
