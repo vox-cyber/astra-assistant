@@ -1,0 +1,27 @@
+{
+  "id": "astra-reply-resilience",
+  "name": "Astra reply and account guard",
+  "description": "Configurable contact isolation, activity-aware away replies and owner-only voice playback.",
+  "activation": { "onStartup": true },
+  "configSchema": {
+    "type": "object", "additionalProperties": false,
+    "properties": {
+      "ownerIds": { "type": "array", "items": { "type": "string" }, "default": [] },
+      "delegates": { "type": "array", "items": { "type": "string" }, "default": [] },
+      "ownerName": { "type": "string", "default": "the account owner" },
+      "stateDir": { "type": "string" },
+      "workspace": { "type": "string" },
+      "openclawBin": { "type": "string", "default": "openclaw" },
+      "profile": { "type": "string", "pattern": "^[a-zA-Z0-9_-]+$", "default": "astra-community" },
+      "inboundDir": { "type": "string" },
+      "primaryModel": { "type": "string", "default": "omniroute/kg/kilo-auto/free" },
+      "fallbackModels": { "type": "array", "items": { "type": "string" }, "default": [] },
+      "awayEnabled": { "type": "boolean", "default": false },
+      "publicChatEnabled": { "type": "boolean", "default": false },
+      "awayText": { "type": "string" },
+      "quietMinutes": { "type": "integer", "minimum": 1, "maximum": 120, "default": 15 },
+      "instagramJobId": { "type": "string", "default": "" },
+      "voiceEnabled": { "type": "boolean", "default": false }
+    }
+  }
+}

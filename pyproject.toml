@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astra-assistant"
+version = "0.1.0"
+description = "A guided, privacy-conscious desktop and messaging assistant setup"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = []
+
+[project.scripts]
+astra = "astra_app.cli:main"
+
+[tool.setuptools]
+packages = ["astra_app"]
+
+[tool.setuptools.package-data]
+astra_app = ["web/*"]
+
+[tool.setuptools.data-files]
+"share/astra-assistant" = ["README.md", "LICENSE"]
+"share/astra-assistant/docs" = ["docs/*.md"]
+"share/astra-assistant/plugins/astra-reply-resilience" = ["plugins/astra-reply-resilience/*.js", "plugins/astra-reply-resilience/*.json", "plugins/astra-reply-resilience/*.py"]

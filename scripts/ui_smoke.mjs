@@ -1,0 +1,63 @@
+import { spawn } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+import assert from 'node:assert/strict';
+
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.env.ASTRA_PLAYWRIGHT || 'playwright');
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const temporary = await mkdtemp(join(tmpdir(), 'astra-ui-'));
+const child = spawn(process.env.PYTHON || 'python3', ['scripts/ui_fixture.py'], { cwd: root, env: { ...process.env, ASTRA_HOME: temporary }, stdio: ['ignore', 'pipe', 'pipe'] });
+let browser;
+try {
+  const port = await new Promise((resolve, reject) => {
+    let buffer = '';
+    const timer = setTimeout(() => reject(new Error('Fixture start timed out')), 15000);
+    child.stdout.on('data', chunk => { buffer += chunk; if (buffer.includes('\n')) { clearTimeout(timer); resolve(JSON.parse(buffer.split('\n')[0]).port); } });
+    child.on('exit', code => { clearTimeout(timer); reject(new Error('Fixture exited: ' + code)); });
+  });
+  browser = await chromium.launch({ headless: true, ...(process.env.ASTRA_BROWSER ? { executablePath: process.env.ASTRA_BROWSER } : {}) });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto(`http://127.0.0.1:${port}/#session=synthetic-ui-session`);
+  await page.getByText('Begin with your identity', { exact: true }).waitFor();
+  if (process.env.ASTRA_UI_SCREENSHOT) await page.screenshot({ path: process.env.ASTRA_UI_SCREENSHOT, fullPage: true });
+  await page.locator('[data-page="setup"]').click();
+  await page.locator('[name="owner_name"]').fill('Synthetic Owner');
+  await page.locator('[name="owner_phone"]').fill('+15555550100');
+  await page.locator('[name="timezone"]').fill('UTC');
+  await page.locator('#settings-form button[type="submit"]').click();
+  await page.getByText('Result · settings.save', { exact: true }).waitFor();
+  await page.locator('[data-action="model.test"]').click();
+  await page.getByText('Synthetic provider unavailable', { exact: true }).waitFor();
+  await page.locator('[data-page="tasks"]').click();
+  await page.locator('[name="title"]').first().fill('Synthetic reminder');
+  await page.locator('[name="when"]').fill('20m');
+  await page.locator('#task-form button').click();
+  await page.locator('#task-list').getByText('Synthetic reminder', { exact: true }).waitFor();
+  await page.locator('[data-page="assistant"]').click();
+  await page.locator('#prompt').fill('Synthetic test task');
+  await page.locator('#ask-form button').click();
+  await page.locator('#answer').getByText(/Synthetic answer/).waitFor();
+  assert.equal(await page.locator('#answer img').count(), 0, 'Model text must not become HTML');
+  await page.locator('[data-page="connections"]').click();
+  await page.locator('#google-client').setInputFiles({ name: 'synthetic-client.json', mimeType: 'application/json', buffer: Buffer.from('{}') });
+  await page.getByText('Result · google.import', { exact: true }).waitFor();
+  await page.locator('[data-page="help"]').click();
+  await page.locator('[data-guide="INSTALL.md"]').last().click();
+  await page.locator('#guide-content').getByText(/Install and first launch/).waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('[data-page="overview"]').click();
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'Mobile page must fit viewport');
+  assert.deepEqual(errors, []);
+  console.log('Browser smoke passed: desktop/mobile navigation, settings, job errors, reminders, safe rendering, client upload and local guides. No native/account/model calls.');
+} finally {
+  await browser?.close();
+  child.kill('SIGTERM');
+  await new Promise(resolve => { if (child.exitCode !== null) resolve(); else child.once('exit', resolve); });
+  await rm(temporary, { recursive: true, force: true });
+}

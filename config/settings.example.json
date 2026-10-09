@@ -1,0 +1,18 @@
+{
+  "owner_name": "",
+  "owner_phone": "",
+  "owner_lid": "",
+  "delegates": [],
+  "primary_model": "omniroute/kg/kilo-auto/free",
+  "fallback_models": [],
+  "provider_url": "http://127.0.0.1:20129/v1",
+  "provider_api_key": "",
+  "google_email": "",
+  "google_client_file": "",
+  "instagram_username": "",
+  "timezone": "UTC",
+  "away_enabled": false,
+  "away_quiet_minutes": 15,
+  "voice_autoplay": false,
+  "public_chat_enabled": false
+}

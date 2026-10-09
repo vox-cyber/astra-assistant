@@ -1,0 +1,7 @@
+{
+  "name": "astra-reply-resilience",
+  "version": "1.6.0",
+  "type": "module",
+  "license": "MIT",
+  "openclaw": { "extensions": ["./index.js"] }
+}
