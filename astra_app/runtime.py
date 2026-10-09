@@ -1,6 +1,7 @@
 """Explicit setup of an isolated OpenClaw profile, never the default profile."""
 import json
 import os
+import shutil
 import secrets
 import shlex
 import sys
@@ -47,13 +48,67 @@ def router_environment():
     env["DATA_DIR"] = str(settings.home() / "private/omniroute")
     env["OMNIROUTE_BASE_URL"] = f"http://127.0.0.1:{settings.ROUTER_PORT}"
     env["PORT"] = str(settings.ROUTER_PORT)
+    env["OMNIROUTE_PORT"] = str(settings.ROUTER_PORT)
+    env["API_PORT"] = str(settings.ROUTER_PORT)
+    env["DASHBOARD_PORT"] = str(settings.ROUTER_PORT)
+    env["LIVE_WS_PORT"] = str(settings.ROUTER_PORT + 4)
+    env["LIVE_WS_HOST"] = "127.0.0.1"
     env["HOSTNAME"] = "127.0.0.1"
     env["OMNIROUTE_HOST"] = "127.0.0.1"
+    env["OMNIROUTE_SERVER_HOST"] = "127.0.0.1"
+    env["API_HOST"] = "127.0.0.1"
+    isolated_home = settings.home() / "private/router-home"
+    isolated_home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    isolated_home.chmod(0o700)
+    env["HOME"] = str(isolated_home)
+    env["USERPROFILE"] = str(isolated_home)
+    env["XDG_CONFIG_HOME"] = str(isolated_home / ".config")
     return env
 
 
+def system_executable(name):
+    """Find an already-installed binary without resolving Astra's private wrapper."""
+    candidate = os.environ.get("ASTRA_" + name.upper().replace("-", "_"))
+    if candidate and Path(candidate).is_file():
+        return Path(candidate)
+    path = shutil.which(name)
+    return Path(path) if path else None
+
+
+def system_version(path):
+    import subprocess
+    try:
+        result = subprocess.run([str(path), "--version"], capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def compatible_system_tools():
+    tools = {"openclaw": system_executable("openclaw"), "omniroute": system_executable("omniroute")}
+    versions = {name: system_version(path) if path else "" for name, path in tools.items()}
+    if not re.search(rf"\b{re.escape(OPENCLAW_VERSION)}(?:\s|$|\))", versions["openclaw"]):
+        return None
+    if not re.search(r"\b3\.8\.(?:50|51)\b", versions["omniroute"]):
+        return None
+    return {name: (tools[name], versions[name]) for name in tools}
+
+
+def use_system_tools(tools):
+    directory = tools_dir() / "node_modules/.bin"
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    for name, (source, _) in tools.items():
+        target = directory / name
+        if target.exists() or target.is_symlink():
+            if target.is_symlink() and target.resolve() == source.resolve():
+                continue
+            raise OperationError(f"Astra private tool path already contains a different {name}; inspect it before replacing it")
+        target.symlink_to(source)
+    return directory
+
+
 def bootstrap(runner=None):
-    """Install pinned Node CLIs under ASTRA_HOME; never use npm -g."""
+    """Install or safely wrap pinned-compatible Node CLIs under ASTRA_HOME; never use npm -g."""
     runner = runner or Runner()
     node = runner.run("node", ["--version"], timeout=15).strip()
     match = re.match(r"v(\d+)\.(\d+)", node)
@@ -62,8 +117,26 @@ def bootstrap(runner=None):
     target = tools_dir()
     target.mkdir(parents=True, exist_ok=True, mode=0o700)
     target.chmod(0o700)
-    runner.run("npm", ["install", "--prefix", str(target), "--no-fund", "--no-audit", "--save-exact",
-                       f"openclaw@{OPENCLAW_VERSION}", f"omniroute@{OMNIROUTE_VERSION}"], timeout=900)
+    if all((target / "node_modules/.bin" / name).is_file() for name in ("openclaw", "omniroute")):
+        return {"message": "Astra's private core tools are already installed.", "openclaw": OPENCLAW_VERSION,
+                "omniroute": OMNIROUTE_VERSION, "tools": str(target), "mode": "private"}
+    compatible = compatible_system_tools()
+    if compatible:
+        use_system_tools(compatible)
+        return {"message": "Compatible existing core binaries are wrapped by Astra's isolated profile/data paths.",
+                "openclaw": compatible["openclaw"][1], "omniroute": compatible["omniroute"][1],
+                "tools": str(target), "mode": "isolated-system-binaries"}
+    try:
+        runner.run("npm", ["install", "--prefix", str(target), "--no-fund", "--no-audit", "--save-exact",
+                           f"openclaw@{OPENCLAW_VERSION}", f"omniroute@{OMNIROUTE_VERSION}"], timeout=900)
+    except OperationError as error:
+        compatible = compatible_system_tools()
+        if compatible:
+            use_system_tools(compatible)
+            return {"message": "Pinned download was incomplete, so compatible existing core binaries were wrapped with isolated paths.",
+                    "openclaw": compatible["openclaw"][1], "omniroute": compatible["omniroute"][1],
+                    "tools": str(target), "mode": "isolated-system-binaries", "download_error": str(error)}
+        raise
     local_executable("openclaw")
     local_executable("omniroute")
     return {"message": "Pinned OpenClaw and OmniRoute installed in Astra's private tools directory.",

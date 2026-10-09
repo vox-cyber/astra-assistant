@@ -5,7 +5,7 @@ This is the public, configurable implementation. Prior private deployment eviden
 | Feature | Included implementation | What you still provide/verify |
 | --- | --- | --- |
 | Setup UI | Loopback authentication, guided setup, safe DOM text rendering, fixed operations, bounded job queue | Python/browser and your own settings |
-| Core bootstrap | Pinned OpenClaw 2026.9.1 and OmniRoute 3.8.51 installed under ASTRA_HOME/tools; separate OmniRoute data/port | Node.js itself, provider account/model sign-in and optional OS tools |
+| Core bootstrap | Pinned OpenClaw 2026.9.1 and OmniRoute 3.8.51 installed under ASTRA_HOME/tools, or compatible existing binaries wrapped with isolated paths; separate OmniRoute data/port | Node.js itself, provider account/model sign-in and optional OS tools |
 | Persistent assistant | Isolated OpenClaw main session and profile; no session reset on apply | Pinned OpenClaw, working gateway and model/tool support |
 | OmniRoute routing | Configurable API URL/key, qualified primary/fallbacks, catalog/completion checks | Provider account, quotas and task-appropriate models |
 | FIFO/progress/recovery | Follow-up queue settings, style agreement, bounded empty-final recovery without tool replay | Runtime behavior with your model; read actual task results |

@@ -93,19 +93,35 @@ class RuntimeTests(LocalTest):
     def test_core_bootstrap_uses_private_prefix_and_pinned_versions(self):
         from unittest.mock import Mock
         target = settings.home() / "tools/node_modules/.bin"
-        target.mkdir(parents=True)
-        for name in ("openclaw", "omniroute"):
-            path = target / name
-            path.write_text("#!/bin/sh\n")
-            path.chmod(0o700)
-        runner = Mock(run=Mock(side_effect=["v24.21.0", "installed"]))
-        result = runtime.bootstrap(runner)
+        def run(name, args, **kwargs):
+            if name == "npm":
+                target.mkdir(parents=True, exist_ok=True)
+                for binary in ("openclaw", "omniroute"):
+                    path = target / binary
+                    path.write_text("#!/bin/sh\n")
+                    path.chmod(0o700)
+                return "installed"
+            return "v24.21.0"
+        runner = Mock(run=Mock(side_effect=run))
+        with patch("astra_app.runtime.compatible_system_tools", return_value=None):
+            result = runtime.bootstrap(runner)
         args = runner.run.call_args_list[1].args[1]
         self.assertIn("--prefix", args)
         self.assertEqual(args[args.index("--prefix") + 1], str(settings.home() / "tools"))
         self.assertIn("openclaw@2026.9.1", args)
         self.assertIn("omniroute@3.8.51", args)
         self.assertIn(str(settings.home() / "tools"), result["tools"])
+
+    def test_compatible_existing_binaries_are_wrapped_without_npm_install(self):
+        from unittest.mock import Mock
+        system = {"openclaw": Path("/system/openclaw"), "omniroute": Path("/system/omniroute")}
+        with patch("astra_app.runtime.compatible_system_tools", return_value={
+            "openclaw": (system["openclaw"], "OpenClaw 2026.9.1"),
+            "omniroute": (system["omniroute"], "3.8.50")}), \
+             patch("astra_app.runtime.use_system_tools") as wrap:
+            result = runtime.bootstrap(Mock(run=Mock(return_value="v24.21.0")))
+        wrap.assert_called_once()
+        self.assertEqual(result["mode"], "isolated-system-binaries")
 
     def test_private_core_status_does_not_accept_another_global_installation(self):
         from unittest.mock import Mock

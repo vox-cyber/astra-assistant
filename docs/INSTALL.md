@@ -36,7 +36,7 @@ python3 launch.py bootstrap
 python3 launch.py router start
 ```
 
-This installs pinned OpenClaw 2026.9.1 and OmniRoute 3.8.51 under `ASTRA_HOME/tools`, never with `npm -g`. The router uses its own data directory under `ASTRA_HOME/private/omniroute` and port 20129. It does not modify another OpenClaw profile or the existing OmniRoute installation.
+This installs pinned OpenClaw 2026.9.1 and OmniRoute 3.8.51 under `ASTRA_HOME/tools`, never with `npm -g`. If compatible binaries already exist, Astra may wrap them there instead of downloading duplicate dependency trees. The router uses its own data directory under `ASTRA_HOME/private/omniroute`, isolated HOME, and port 20129. It does not modify another OpenClaw profile or the existing OmniRoute installation.
 
 Open http://127.0.0.1:20129, connect your own provider, and use its dashboard to select/enable the intended model. If OmniRoute requires an API key, create your own local router key and paste it into Astra's password field. No provider credential is included with this project.
 
@@ -95,7 +95,7 @@ Install Chrome/Chromium using the official browser or your distribution's packag
 
 ### What setup does and does not automate
 
-The GitHub version automates the local dashboard, private settings, pinned core Node tools, isolated OpenClaw profile/plugin installation, config validation, gateway profile, task/reminder state, optional service templates and local workspace scaffolding. It does **not** automatically create or approve accounts, bypass OAuth/2FA, scan WhatsApp/Instagram QR codes, install Node/Chrome/ADB/sudo packages, choose a model provider, publish Google consent, pair Android/Tailscale/Syncthing devices, or claim that an account/API is ready without a real check. Those steps intentionally require you to approve the account's own login/consent screens.
+The GitHub version automates the local dashboard, private settings, pinned core Node tools or safe wrappers for compatible existing binaries, isolated OpenClaw profile/plugin installation, config validation, gateway profile, task/reminder state, optional service templates and local workspace scaffolding. It does **not** automatically create or approve accounts, bypass OAuth/2FA, scan WhatsApp/Instagram QR codes, install Node/Chrome/ADB/sudo packages, choose a model provider, publish Google consent, pair Android/Tailscale/Syncthing devices, or claim that an account/API is ready without a real check. Those steps intentionally require you to approve the account's own login/consent screens.
 
 ## Persistent operation
 
